@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitoreo de Temperatura en Tiempo Real</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f9;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-top: 20px;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin-top: 20px;
+        }
+
+        /* Contenedor para el gráfico y la tabla */
+        .main-content {
+            display: flex;
+            justify-content: space-between;
+            width: 90%;
+            max-width: 1200px;
+            margin-top: 30px;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        /* Configuración del gráfico */
+        canvas {
+            max-width: 100%;
+            flex: 1;
+            min-width: 400px;
+        }
+
+        /* Estilos para los botones */
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            background-color: #4CAF50;
+            color: white;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        button:disabled {
+            background-color: #d3d3d3;
+        }
+
+        /* Estilos para la tabla */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            max-width: 500px;
+            flex: 1;
+            min-width: 300px;
+        }
+
+        th, td {
+            padding: 8px 15px;
+            text-align: center;
+            border: 1px solid #ddd;
+        }
+
+        th {
+            background-color: #f2f2f2;
+        }
+
+        td {
+            background-color: #fff;
+        }
+
+        /* Responsive para pantallas pequeñas */
+        @media (max-width: 768px) {
+            .main-content {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            canvas, table {
+                max-width: 100%;
+                min-width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Monitoreo de Temperatura en Tiempo Real</h1>
+
+        <!-- Contenedor para el gráfico y la tabla -->
+        <div class="main-content">
+            <!-- Gráfico -->
+            <canvas id="myChart"></canvas>
+
+            <!-- Tabla -->
+            <div>
+                <table id="temperatureTable">
+                    <thead>
+                        <tr>
+                            <th>Hora</th>
+                            <th>Temperatura (°C)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Los datos se actualizarán aquí -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Controles para iniciar y detener -->
+        <div class="controls">
+            <button id="startButton" onclick="startMonitoring()">Iniciar Monitoreo</button>
+            <button id="stopButton" onclick="stopMonitoring()" disabled>Detener Monitoreo</button>
+        </div>
+    </div>
+
+    <script>
+        var ctx = document.getElementById('myChart').getContext('2d');
+        var chartData = {
+            labels: [],
+            datasets: [{
+                label: 'Temperatura (°C)',
+                borderColor: 'red',
+                backgroundColor: 'rgba(255, 0, 0, 0.2)',
+                data: []
+            }]
+        };
+
+        var myChart = new Chart(ctx, {
+            type: 'line',
+            data: chartData,
+            options: {
+                responsive: true,
+                scales: {
+                    x: { display: true },
+                    y: { beginAtZero: false }
+                }
+            }
+        });
+
+        var socket = io.connect("http://" + document.domain + ":" + location.port);
+        var monitoring = false;
+        var maxRows = 11;  // Limitar a 11 filas en la tabla
+
+        socket.on('update_data', function (data) {
+            if (monitoring) {
+                console.log("Data received:", data.temperature);
+                
+                // Actualizar gráfico
+                if (chartData.labels.length > 20) {
+                    chartData.labels.shift();
+                    chartData.datasets[0].data.shift();
+                }
+                chartData.labels.push(new Date().toLocaleTimeString());
+                chartData.datasets[0].data.push(data.temperature);
+                myChart.update();
+
+                // Actualizar tabla
+                var table = document.getElementById("temperatureTable").getElementsByTagName('tbody')[0];
+                var row = table.insertRow(0);  // Insertar al inicio
+                var cell1 = row.insertCell(0);
+                var cell2 = row.insertCell(1);
+                cell1.innerHTML = new Date().toLocaleTimeString();
+                cell2.innerHTML = data.temperature.toFixed(2);
+                
+                // Limitar la tabla a 11 filas
+                if (table.rows.length > maxRows) {
+                    table.deleteRow(table.rows.length - 1);  // Eliminar la última fila
+                }
+            }
+        });
+
+        function startMonitoring() {
+            monitoring = true;
+            document.getElementById('startButton').disabled = true;
+            document.getElementById('stopButton').disabled = false;
+        }
+
+        function stopMonitoring() {
+            monitoring = false;
+            document.getElementById('startButton').disabled = false;
+            document.getElementById('stopButton').disabled = true;
+        }
+    </script>
+</body>
+</html>
+
+
+
+
